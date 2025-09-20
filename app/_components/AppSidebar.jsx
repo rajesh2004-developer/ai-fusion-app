@@ -21,7 +21,7 @@ export function AppSidebar() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Image
-                src={'./logo.svg'}
+                src={'/logo.svg'}
                 width={60}
                 height={60}
                 alt="logo"

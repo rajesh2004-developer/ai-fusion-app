@@ -1,6 +1,6 @@
 import AIModelList from '@/shared/AIModelList';
 import Image from 'next/image';
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -11,25 +11,36 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Lock, MessageSquare } from 'lucide-react';
+import { Loader, Lock, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AiSelectedModelContext } from '@/context/AiSelectedModelContext';
 import { useUser } from '@clerk/nextjs';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/config/FirebaseConfig';
-
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 const AiMultiModels = () => {
   const [aiModelList, setAiModelList] = useState(AIModelList);
-  const { AiSelectedModels, setAiSelectedModels } = useContext(
-    AiSelectedModelContext
-  );
+
+  const { AiSelectedModels, setAiSelectedModels, messages, setMessages } =
+    useContext(AiSelectedModelContext);
   const { user } = useUser();
 
   const onToggleChange = (model, value) => {
     setAiModelList((prev) =>
       prev.map((m) => (m.model === model ? { ...m, enable: value } : m))
     );
+    setAiSelectedModels((prev) => ({
+      ...prev,
+      [model]: {
+        ...(prev?.[model] ?? {}),
+        enable: value,
+      },
+    }));
   };
+  useEffect(() => {
+    console.log(AiSelectedModels);
+  }, [AiSelectedModels]);
 
   const onSelectedValue = async (parentModel, value) => {
     setAiSelectedModels((prev) => ({
@@ -39,10 +50,7 @@ const AiMultiModels = () => {
       },
     }));
 
-    const docref = doc(db, 'users', user?.primaryEmailAddress?.emailAddress);
-    await updateDoc(docref, {
-      selectedModel: AiSelectedModels,
-    });
+    
   };
 
   return (
@@ -68,7 +76,7 @@ const AiMultiModels = () => {
                 />
                 {model.enable && (
                   <Select
-                    defaultValue={AiSelectedModels[model.model].modelId}
+                    defaultValue={AiSelectedModels[model.model]?.modelId}
                     onValueChange={(value) =>
                       onSelectedValue(model.model, value)
                     }
@@ -76,7 +84,7 @@ const AiMultiModels = () => {
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue
-                        placeholder={AiSelectedModels[model.model].modelId}
+                        placeholder={AiSelectedModels[model.model]?.modelId}
                       />
                     </SelectTrigger>
                     <SelectContent>
@@ -95,7 +103,7 @@ const AiMultiModels = () => {
                       </SelectGroup>
                       <SelectGroup className="px-3">
                         <SelectLabel className={'text-sm text-gray-400'}>
-                          Premeium
+                          premium
                         </SelectLabel>
                         {model.subModel.map(
                           (submodel, index) =>
@@ -132,6 +140,40 @@ const AiMultiModels = () => {
                 <Button>
                   <Lock /> Upgrade to Unlock
                 </Button>
+              </div>
+            )}
+            {model.enable && (
+              <div className="flex-1 p-4">
+                <div className="flex-1 p-4 space-y-2">
+                  {messages &&
+                    messages[model.model]?.map((m, i) => (
+                      <div
+                        className={`p-2 rounded-md ${
+                          m.role == 'user'
+                            ? 'bg-blue-100 text-blue-900'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                        key={i}
+                      >
+                        {m.role == 'assistant' && (
+                          <span className="text-sm text-gray-300">
+                            {m.model ?? model.model}
+                          </span>
+                        )}
+                        {m.content == 'Thinking...' && (
+                          <>
+                            <Loader className="animate-spin" />{' '}
+                            <span>Thinking...</span>
+                          </>
+                        )}
+                        {m.content != 'Thinking...' && (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.content}
+                          </ReactMarkdown>
+                        )}
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
           </div>
